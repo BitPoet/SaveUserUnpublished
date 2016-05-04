@@ -1,0 +1,69 @@
+<?php
+
+/**
+ * Allow saving users in unpublished state in ProcessWire
+ *
+ * Only tested with PW version 3.0.16
+ */
+
+class SaveUserUnpublished extends Wire implements Module {
+	public static function getModuleInfo() {
+		return array(
+			"title"			=>	__("Save User Unpublished", __FILE__),
+			"summary"		=>	__("Allow saving users in unpublished state", __FILE__),
+			"version"		=>	"0.0.12",
+			"autoload"		=>	true
+		);
+	}
+	
+	public function init() {
+		$this->addHookAfter("ProcessPageEdit::buildForm", $this, "addSaveUnpublishedButton");
+	}
+	
+	public function addSaveUnpublishedButton($event) {
+		$page = $event->page;
+		$form = $event->return;
+		
+		$id = (int) $this->input->post('id');
+		if(! $id) $id = (int) $this->input->get('id');
+		
+		if(! $id) return;
+		
+		if($page->process == "ProcessUser")
+		{
+			$editpage = $this->pages->get($id);
+
+			if( $editpage instanceof NullPage ) return;
+			
+			if(! $editpage->hasStatus(Page::statusUnpublished)) return;
+			
+			$pubbtn = $form->getChildByName('submit_publish');
+			if($pubbtn) {
+				$this->editPage = $editpage;
+				
+				$submit2 = $this->modules->get('InputfieldSubmit');
+				$submit2->attr('name', 'submit_save');
+				$submit2->attr('id', 'submit_save_unpublished');
+				$submit2->class .= ' ui-priority-secondary head_button_clone';
+				$submit2->attr('value', $this->_('Save + Keep Unpublished')); // Button: save unpublished
+				
+				$form->insertAfter($submit2, $pubbtn);
+				
+				$this->addHookBefore("ProcessPageEdit::processInput", $this, "removePwdRequiredState");
+			}
+		}
+		
+		$event->return = $form;
+	}
+	
+	public function removePwdRequiredState($event) {
+		$form = $event->arguments(0);
+		$level = $event->arguments(1);
+		
+		if($level == 0 && $this->editPage->hasStatus(Page::statusUnpublished)) {
+			$fld = $form->getChildByName('pass');
+			$fld->required = false;
+			$event->removeHook(null);
+		}
+	}
+}
