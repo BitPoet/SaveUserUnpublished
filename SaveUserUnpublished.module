@@ -11,7 +11,7 @@ class SaveUserUnpublished extends Wire implements Module {
 		return array(
 			"title"			=>	__("Save User Unpublished", __FILE__),
 			"summary"		=>	__("Allow saving users in unpublished state", __FILE__),
-			"version"		=>	"0.0.12",
+			"version"		=>	"0.0.18",
 			"autoload"		=>	true
 		);
 	}
@@ -35,34 +35,61 @@ class SaveUserUnpublished extends Wire implements Module {
 
 			if( $editpage instanceof NullPage ) return;
 			
-			if(! $editpage->hasStatus(Page::statusUnpublished)) return;
-			
-			$pubbtn = $form->getChildByName('submit_publish');
-			if($pubbtn) {
-				$this->editPage = $editpage;
+			$this->editPage = $editpage;
+
+			if($editpage->hasStatus(Page::statusUnpublished)) {
+				// Add button to save and keep unpublished
+				$pubbtn = $form->getChildByName('submit_publish');
+				if($pubbtn) {
+					
+					$submit2 = $this->modules->get('InputfieldSubmit');
+					$submit2->attr('name', 'submit_save');
+					$submit2->attr('id', 'submit_save_unpublished');
+					$submit2->class .= ' ui-priority-secondary head_button_clone';
+					$submit2->attr('value', $this->_("Save + Keep Unpublished")); // Button: save unpublished
+					
+					$form->insertAfter($submit2, $pubbtn);
+				}
+
+				$roles = $form->getChildByName("roles");
+				if($roles) {
+					$f = $this->modules->get("InputfieldMarkup");
+					$f->attr('name', 'statusunpublished');
+					$f->attr('value', $this->_('User is not published'));
+					$roles->parent->insertAfter($f, $roles);
+				}
 				
-				$submit2 = $this->modules->get('InputfieldSubmit');
-				$submit2->attr('name', 'submit_save');
-				$submit2->attr('id', 'submit_save_unpublished');
-				$submit2->class .= ' ui-priority-secondary head_button_clone';
-				$submit2->attr('value', $this->_('Save + Keep Unpublished')); // Button: save unpublished
-				
-				$form->insertAfter($submit2, $pubbtn);
-				
-				$this->addHookBefore("ProcessPageEdit::processInput", $this, "removePwdRequiredState");
+			} else {
+				// Add checkbox to unpublish
+				$roles = $form->getChildByName("roles");
+				if($roles) {
+					
+					$f = $this->modules->get("InputfieldCheckbox");
+					$f->attr('id+name', 'unpublishuser');
+					$f->label = $f->title = $this->_("Unpublish User");
+					
+					$form->insertAfter($f, $roles);
+				}
 			}
+
+			$this->addHookBefore("ProcessPageEdit::processInput", $this, "beforePageEditProcessInput");
 		}
 		
 		$event->return = $form;
 	}
 	
-	public function removePwdRequiredState($event) {
+	public function beforePageEditProcessInput($event) {
 		$form = $event->arguments(0);
 		$level = $event->arguments(1);
 		
-		if($level == 0 && $this->editPage->hasStatus(Page::statusUnpublished)) {
+		if($level == 0) {
 			$fld = $form->getChildByName('pass');
 			$fld->required = false;
+			
+			if($this->input->post->unpublishuser) {
+				$this->editPage->addStatus(Page::statusUnpublished);
+			}
+			
 			$event->removeHook(null);
 		}
 	}
