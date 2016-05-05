@@ -7,7 +7,7 @@ Only tested with ProcessWire 3.0.16
 
 ### Description
 
-Adds a "Save + Keep Unpublished" button to the edit page for users.
+Adds a "Save + Keep Unpublished" button to the edit page for users and a checkbox to unpublish already published users.
 
 ### Status
 
